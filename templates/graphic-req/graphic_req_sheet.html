@@ -107,16 +107,17 @@
         <table>
             <tr>
                 <th style="padding-right: 3rem;"><span><i class="bi bi-caret-up"></i></span> Designer</th>
-                <th style="padding-right: 2rem;"><span><i class="bi bi-caret-up"></i></span> Due Date</th>
-                <th style="padding-right: 6rem;"><span><i class="bi bi-caret-up"></i></span> Story headline</th>
+                <th style="padding-right: 2rem;"><span><i class="bi bi-caret-up"></i></span> Graphic Due</th>
+                <th style="padding-right: 2rem;"><span><i class="bi bi-caret-up"></i></span> Type of Graphic</th>
+                <th style="padding-right: 6rem;"><span><i class="bi bi-caret-up"></i></span> Headline</th>
+                <th style="padding-right: 12rem;"><span><i class="bi bi-caret-up"></i></span> Article Description</th>
+                <th style="padding-right: 12rem;"><span><i class="bi bi-caret-up"></i></span> Illustration Description</th>
+                <th style="padding-right: 12rem;"><span><i class="bi bi-caret-up"></i></span> Purpose</th>
+                <th><span><i class="bi bi-caret-up"></i></span> Reference Link</th>
                 <th style="padding-right: 3rem;"><span><i class="bi bi-caret-up"></i></span> Department</th>
                 <th style="padding-right: 5rem;"><span><i class="bi bi-caret-up"></i></span> Requestor</th>
-                <th style="padding-right: 12rem;"><span><i class="bi bi-caret-up"></i></span> Details</th>
-                <th style="padding-right: 12rem;"><span><i class="bi bi-caret-up"></i></span> Additional Info</th>
-                <th><span><i class="bi bi-caret-up"></i></span> Reference Link</th>
-                <th><span><i class="bi bi-caret-up"></i></span> Courtesy?</th>
-                <th style="padding-right: 5rem;"><span><i class="bi bi-caret-up"></i></span> Event Details</th>
-                <th style="padding-right: 3rem;"><span><i class="bi bi-caret-up"></i></span> Credentials?</th>
+                <th style="padding-right: 5rem;"><span><i class="bi bi-caret-up"></i></span> Publish Date</th>
+                <th style="padding-right: 5rem;"><span><i class="bi bi-caret-up"></i></span> Online/Print</th>
                 <th>Delete</th>
             </tr>
             {% for r in requests %}
@@ -144,7 +145,18 @@
                     {% endif %}                    
                 </td>
                 <td>{{ r.dueDate|ap_date }} {% if r.lateSubmit %}<span title="Submitted less than 48 hours in advance." style="cursor: default; margin-left: 0.25rem;">🕐</span>{% endif %}</td>
-                <td>{{ r.memo }}</td>
+                <td>{{ r.graphicType }}</td>
+                <td>{{ r.storyheadline }}</td>
+                <td>{{ r.storyDetails }}</td>
+                <td>{{ r.illustrationDescription }}</td>
+                <td>{{ r.illustrationPurpose }}</td>
+                <td>
+                    {% if r.referenceURL %}
+                        <a href="{{ r.referenceURL }}" target="_blank">Link</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
                 <td>
                     {{ r.destination }}
                     {% if r.department %}
@@ -157,36 +169,8 @@
                     <br>
                     <p style="font-size: 0.75rem; margin-top: 0.25rem; margin-bottom: 0;">Submitted {{ r.submissionTimestamp|ap_datetime }}</p>
                 </td>
-                <td>{{ r.specificDetails }}</td>
-                <td>{{ r.moreInfo }}</td>
-                <td>
-                    {% if r.referenceURL %}
-                        <a href="{{ r.referenceURL }}" target="_blank">Link</a>
-                    {% else %}
-                        None
-                    {% endif %}
-                </td>
-                <td>
-                    {% if r.isCourtesy == true %}
-                        Yes
-                    {% else %}
-                        No
-                    {% endif %}
-                </td>
-                <td>
-                    {% if r.specificEvent == true %}
-                        {{ r.eventDateTime|ap_datetime }}
-                        <br>
-                        {{ r.eventLocation }}
-                    {% endif %}
-                </td>
-                <td>
-                    {% if r.pressPass == true %}
-                        Requested by {{ r.pressPassRequester }}
-                    {% else %}
-                        No
-                    {% endif %}
-                </td>
+                <td>{{ r.dueDate|ap_date }}</td>
+                <td>{{ r.publishLocation }}</td>
                 <td>
                     <button class="button-secondary" onclick="deleteRequest('{{ r.uid }}')"><i class="bi bi-trash3-fill"></i></button>
                 </td>

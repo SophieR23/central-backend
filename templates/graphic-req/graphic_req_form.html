@@ -23,7 +23,6 @@
 {% endblock %}
 
 {% import "macros/form.html" as form %}
-
 {% include "partials/loading.html" %}
 {% include "partials/text_alert.html" %}
 {% include "partials/button_alert.html" %}
@@ -89,7 +88,7 @@
     ) }}
     {{ form.text_input( 
         name="dueDate",
-        label="When is it being published??",
+        label="When is it being published?",
         subtext="If your story is going in PRINT, mark the publication date well in advance of when it will actually be printed so that we have enough time to make your graphic! At the latest, mark the date as Saturday of the week before we print.",
         alt_type="date",
         required=true,
@@ -151,20 +150,16 @@
         // Get the response data from the form (all as strings)
         const formData = new FormData(submissionForm);
         const valEmail = formData.get("email");                 
-        const valName = formData.get("name");                   
-        const valDest = formData.get("destination");            
-        const valDept = formData.get("department");              // Not always submitted
-        const valMemo = formData.get("memo");                   
-        const valDetails = formData.get("specificDetails");     
-        const valUrl = formData.get("url");                     // Not always submitted
+        const valName = formData.get("name");                              
+        const valDept = formData.get("department");             
+        const valHeadline = formData.get("storyheadline");                   
+        const valDetails = formData.get("storyDetails");     
+        const valUrl = formData.get("url");                     
         const valDue = formData.get("dueDate"); 
-        var valCourt = formData.get("isCourtesy-options");    
-        var valEvent = formData.get("isEvent-options");       // Not always submitted
-        const valEvDate = formData.get("eventDate");            // Not always submitted || This is naive with no TZ
-        const valEvLoc = formData.get("eventLocation");         // Not always submitted
-        var valPass = formData.get("presspass-options");      // Not always submitted
-        const valPpReq = formData.get("presspassRequestor");    // Not always submitted
-        const valInfo = formData.get("info");                   // Not always submitted
+        const valLocation = formData.get("publishLocation");    
+        const valType = formData.get("graphicType");       
+        const valDesc = formData.get("illustrationDescription"); 
+                  
 
         // Validate the input, cancel the submission if not valid
         valid = await validateInput(valEmail, valName, valDest, valDept, valMemo,
