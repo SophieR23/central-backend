@@ -1,0 +1,419 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Graphic Requests
+{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="/static/styles/styles_index.css">
+    <link rel="stylesheet" href="/static/macros/form.css">
+    <style>
+        table {
+            border-collapse: separate;
+            border-spacing: 0 0.5rem;
+            width: 100%;
+            background-color: var(--main-bg-color);
+            border-radius: var(--main-border-radius);
+        }
+
+        tr {
+            border-radius: var(--main-border-radius);
+        }
+
+        tr:hover td {
+            background-color: var(--main-extralight-color);
+        }
+
+        td {
+            padding: 0.75rem 1rem;
+            background-color: var(--main-bg-color);
+        }
+
+        td:first-child {
+            border-top-left-radius: var(--main-border-radius);
+            border-bottom-left-radius: var(--main-border-radius);
+        }
+
+            td:last-child {
+            border-top-right-radius: var(--main-border-radius);
+            border-bottom-right-radius: var(--main-border-radius);
+        }
+
+        th {
+            padding: 0.75rem 1rem;
+            white-space: nowrap;
+            border-bottom: 1px solid var(--main-lt-gray-color);
+            align-items: center;
+        }
+    </style>
+{% endblock %}
+
+{% import "macros/form.html" as form %}
+{% include "partials/loading.html" %}
+{% include "partials/button_alert.html" %}
+{% include "partials/text_alert.html" %}
+{% include "partials/text_entry_alert.html" %}
+{% include "partials/info_bar.html" %}
+
+{% block content %}
+<h1>Graphic Requests</h1>
+
+{% if hide_extras %}
+<hr>
+
+<a style="text-decoration: none; display: block; color: inherit;" href="/graphic-requests/form" target="_blank">
+    <button class="button-secondary">
+        Submit a Request
+    </button>
+</a>
+{% endif %}
+
+<hr style="margin-bottom: 2rem;">
+
+<section class="section-container" id="requests-container">
+    <div class="section-header">
+        <h2 style="margin-bottom: 0">{{ selection }}</h2>
+    </div>
+
+    <div style="display: flex; flex-direction: row; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
+        <div style="display: flex; flex-direction: row; align-items: center;" id="querySearchBar">
+            <i class="bi bi-search"></i>
+            {{ form.text_input( 
+                name="searchQuery",
+                placeholder="Search...",
+                class=""
+            ) }}
+        </div>
+
+        {% if not hide_extras %}
+            <div style="display: flex; flex-direction: row; gap: 1rem; align-items: center;">
+                {{ form.select_input( 
+                    name="filterInput",
+                    label="Filter Requests",
+                    options=["All", "Completed", "In-Progress", "Claimed", "Unclaimed"],
+                    class=""
+                ) }} 
+                <button class="button-primary" onclick="filterInput()" disabled="true" id="filterInputButton">Search</button>
+            </div>
+        {% endif  %}
+    </div>
+
+    {% if not requests %}
+    <div class="inner-container" style="align-items: center; text-align: center;" id="no-favs-message">
+        <p style="margin-bottom: 0;">There are no graphic requests for this selection.</p>
+    </div>
+    {% else %}
+    <div style="overflow-x: auto; max-width: 100%; border-radius: var(--main-border-radius); box-shadow: var(--input-box-shadow);">
+        <table>
+            <tr>
+                <th style="padding-right: 3rem;"><span><i class="bi bi-caret-up"></i></span> Designer</th>
+                <th style="padding-right: 2rem;"><span><i class="bi bi-caret-up"></i></span> Due Date</th>
+                <th style="padding-right: 6rem;"><span><i class="bi bi-caret-up"></i></span> Story headline</th>
+                <th style="padding-right: 3rem;"><span><i class="bi bi-caret-up"></i></span> Department</th>
+                <th style="padding-right: 5rem;"><span><i class="bi bi-caret-up"></i></span> Requestor</th>
+                <th style="padding-right: 12rem;"><span><i class="bi bi-caret-up"></i></span> Details</th>
+                <th style="padding-right: 12rem;"><span><i class="bi bi-caret-up"></i></span> Additional Info</th>
+                <th><span><i class="bi bi-caret-up"></i></span> Reference Link</th>
+                <th><span><i class="bi bi-caret-up"></i></span> Courtesy?</th>
+                <th style="padding-right: 5rem;"><span><i class="bi bi-caret-up"></i></span> Event Details</th>
+                <th style="padding-right: 3rem;"><span><i class="bi bi-caret-up"></i></span> Credentials?</th>
+                <th>Delete</th>
+            </tr>
+            {% for r in requests %}
+            <tr>
+                <td>
+                    {% if r.status == "claimed" %}
+                        <a href="https://thedailyillini.slack.com/team/{{ r.SlackId }}" target="_blank">{{ r.graphicgName }}</a>
+                        <br>
+                        <p style="font-size: 0.75rem; margin-top: 0.25rem; margin-bottom: 0;">Claimed {{ r.claimTimestamp|ap_datetime }}</p>
+
+                        {% if r.graphicgEmail == current_user.email %}
+                            {% if not hide_extras %}
+                                <button class="button-secondary" onclick="completeGraphic('{{ r.uid }}')" style="margin-top: 0.5rem;">Complete</button>
+                            {% endif %}
+                        {% endif %}
+                    {% elif r.status == "completed" %}
+                        <a href="https://thedailyillini.slack.com/team/{{ r.graphicgSlackId }}" target="_blank">{{ r.graphicgName }}</a>
+                        <br>
+                        <p style="font-size: 0.75rem; margin-top: 0.25rem; margin-bottom: 0;">Completed {{ r.completedTimestamp|ap_datetime }}</p>
+                        <a href="{{ r.driveURL }}" target="_blank">Link to Graphics</a>
+                    {% else %}
+                        {% if not hide_extras %}
+                            <button class="button-primary" onclick="claimGraphic('{{ current_user.email }}', '{{ current_user.name }}', '{{ r.uid }}')">Claim</button>
+                        {% endif %}
+                    {% endif %}                    
+                </td>
+                <td>{{ r.dueDate|ap_date }} {% if r.lateSubmit %}<span title="Submitted less than 48 hours in advance." style="cursor: default; margin-left: 0.25rem;">🕐</span>{% endif %}</td>
+                <td>{{ r.memo }}</td>
+                <td>
+                    {{ r.destination }}
+                    {% if r.department %}
+                        <br>
+                        ({{ r.department }})
+                    {% endif %}
+                </td>
+                <td>
+                    <a href="https://thedailyillini.slack.com/team/{{ r.submitterSlackId }}" target="_blank">{{ r.submitterName }}</a>
+                    <br>
+                    <p style="font-size: 0.75rem; margin-top: 0.25rem; margin-bottom: 0;">Submitted {{ r.submissionTimestamp|ap_datetime }}</p>
+                </td>
+                <td>{{ r.specificDetails }}</td>
+                <td>{{ r.moreInfo }}</td>
+                <td>
+                    {% if r.referenceURL %}
+                        <a href="{{ r.referenceURL }}" target="_blank">Link</a>
+                    {% else %}
+                        None
+                    {% endif %}
+                </td>
+                <td>
+                    {% if r.isCourtesy == true %}
+                        Yes
+                    {% else %}
+                        No
+                    {% endif %}
+                </td>
+                <td>
+                    {% if r.specificEvent == true %}
+                        {{ r.eventDateTime|ap_datetime }}
+                        <br>
+                        {{ r.eventLocation }}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if r.pressPass == true %}
+                        Requested by {{ r.pressPassRequester }}
+                    {% else %}
+                        No
+                    {% endif %}
+                </td>
+                <td>
+                    <button class="button-secondary" onclick="deleteRequest('{{ r.uid }}')"><i class="bi bi-trash3-fill"></i></button>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+    {% endif %}
+</section>
+
+<script>
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const msg = sessionStorage.getItem("infoBarMessage");
+        if (msg) {
+            showInfoBar(msg);
+            sessionStorage.removeItem("infoBarMessage"); // Clear it after showing
+        }
+    });
+
+    async function deleteRequest(uid) {
+        result = await showButtonAlert(
+            header = "Are you sure?",
+            body = "Are you sure you want to delete this request? This action cannot be undone.",
+            alertButtonText = "Delete",
+            cancelButtonText = "Cancel"
+        );
+
+        if (!result) {
+            return;
+        }
+
+        showLoading("Deleting graphic request...");
+
+        let endpoint = "/graphic-requests/api/" + uid + "/remove";
+
+        const response = await fetch(endpoint, {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': "{{ csrf_token() }}"
+            }
+        })
+
+        if (response.status === 200) {
+            sessionStorage.setItem("infoBarMessage", "Request successfully deleted."); // Safe so we can display after reload
+            window.location.reload();
+        } else {
+            console.log("Error deleting graphic request:");
+            const message = await response.text();
+            console.error(message);
+            await showTextAlert(header="There was an error:", body=message, buttonText="Dismiss");
+            hideLoading();
+        }
+    }
+
+    async function claimGraphic(email, name, uid) {
+        result = await showButtonAlert(
+            header = "Confirm", 
+            body = "Are you sure you want to claim this graphic request?", 
+            alertButtonText = "Claim", 
+            cancelButtonText = "Cancel"
+        );
+
+        if (!result) {
+            return;
+        }
+
+        showLoading("Claiming graphic request...");
+
+        let endpoint = "/graphic-requests/api/" + uid + "/claim";
+
+        const payload = {
+            graphicgEmail: email,
+            graphicgName: name,
+        }
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': "{{ csrf_token() }}"
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (response.status === 200) {
+            sessionStorage.setItem("infoBarMessage", "Request successfully claimed."); // Safe so we can display after reload
+            window.location.reload();
+        } else {
+            console.log("Error claiming graphic request:");
+            const message = await response.text();
+            console.error(message);
+            await showTextAlert(header="There was an error:", body=message, buttonText="Dismiss");
+            hideLoading();
+        }
+    }
+
+    async function completeGraphic(uid) {
+        result = await showTextEntryAlert(
+            header = "Provide the Google Drive URL", 
+            body = "Please paste the URL to the Google Drive folder containing your graphics.\nMake sure they are in the Daily Illini Graphics Drive.", 
+            hintText = "Google Drive URL",
+            alertButtonText = "Complete", 
+            cancelButtonText = "Cancel"
+        );
+
+        console.log(result)
+
+        if (result === false) {
+            return;
+        }
+
+        if (result === "") {
+            await showTextAlert(header="Please provide a link", body="A link is required to complete this request. Please try again.", buttonText="Dismiss");
+            return;
+        }
+
+        showLoading("Claiming graphic request...");
+
+        let endpoint = "/graphic-requests/api/" + uid + "/complete";
+
+        const payload = {
+            driveURL: result,
+        }
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': "{{ csrf_token() }}"
+            },
+            body: JSON.stringify(payload),
+        });
+
+        if (response.status === 200) {
+            sessionStorage.setItem("infoBarMessage", "Request successfully completed."); // Safe so we can display after reload
+            window.location.reload();
+        } else {
+            console.log("Error completing graphic request:");
+            const message = await response.text();
+            console.error(message);
+            await showTextAlert(header="There was an error:", body=message, buttonText="Dismiss");
+            hideLoading();
+        }
+    }
+
+    async function filterInput() {
+        const selection = document.getElementById("filterInput").value;
+        let selection_param = selection.toLowerCase();
+        window.location.href = `/graphic-requests/dashboard/${selection_param}`;
+    }
+
+    window.addEventListener('load', () => {
+        // Event listener to enable button when a selection is made
+        const selectionInput = document.getElementById("filterInput");
+        if (selectionInput) {
+            selectionInput.addEventListener("input", () => {
+                if (selectionInput.value != "Select...") {
+                    document.getElementById("filterInputButton").disabled = false;
+                }
+            });
+        }
+
+        // Event listener to handle search query input and column sorting
+        const searchInput = document.getElementById("searchQuery");
+        const table = document.querySelector("table");
+        const tbody = table.querySelector("tbody");
+        const headers = table.querySelectorAll("th");
+
+        searchInput.addEventListener("input", () => {
+            const query = searchInput.value.toLowerCase().trim();
+
+            Array.from(tbody.querySelectorAll("tr:not(:first-child)")).forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(query) ? "" : "none";
+            });
+        });
+
+        // Handle column sorting
+        headers.forEach((header, index) => {
+            header.style.cursor = "pointer";
+            const caret = header.querySelector("i");
+            let asc = true;
+
+            header.addEventListener("click", () => {
+                const rows = Array.from(tbody.querySelectorAll("tr:not(:first-child)")).filter(
+                    row => row.style.display !== "none"
+                );
+
+                rows.sort((a, b) => {
+                    const cellA = a.children[index].innerText.trim().toLowerCase();
+                    const cellB = b.children[index].innerText.trim().toLowerCase();
+
+                    const dateA = Date.parse(cellA);
+                    const dateB = Date.parse(cellB);
+
+                    let cmp;
+
+                    if (!isNaN(dateA) && !isNaN(dateB)) {
+                        cmp = dateA - dateB;
+                    } else if (!isNaN(parseFloat(cellA)) && !isNaN(parseFloat(cellB))) {
+                        cmp = Number(cellA) - Number(cellB);
+                    } else {
+                        cmp = cellA.localeCompare(cellB);
+                    }
+
+                    return asc ? cmp : -cmp;
+                });
+
+                rows.forEach(row => tbody.appendChild(row));
+
+                headers.forEach(h => {
+                    const c = h.querySelector("i");
+                    if (c) {
+                        c.className = "bi bi-caret-up";
+                    }
+                });
+
+                if (caret) {
+                    caret.className = asc ? "bi bi-caret-up-fill" : "bi bi-caret-down-fill";
+                }
+
+                asc = !asc;
+            });
+        });
+    });
+</script>
+
+{% endblock %}

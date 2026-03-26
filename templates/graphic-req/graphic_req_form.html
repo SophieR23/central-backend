@@ -1,0 +1,460 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    Graphic Request Form
+{% endblock %}
+
+{% block extra_head %}
+    <link rel="stylesheet" href="/static/macros/form.css">
+    <style>
+        .graphic-req-form-row {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .graphic-req-form {
+            gap: 1rem;
+        }
+
+        .initial-no-show {
+            display: none;
+        }
+    </style>
+{% endblock %}
+
+{% import "macros/form.html" as form %}
+
+{% include "partials/loading.html" %}
+{% include "partials/text_alert.html" %}
+{% include "partials/button_alert.html" %}
+{% include "partials/info_bar.html" %}
+
+{% block content %}
+<h1>Submit a Graphic Request</h1>
+<h3>Please give us at least 48 hours to make the graphic before your story runs. If you have any questions, feel free to message the Graphics Editor on Slack.</h3>
+<hr>
+
+<a style="text-decoration: none; display: block; color: inherit;" href="/graphic-requests/api/fetch/submitted/{{ current_user.email }}" target="_blank">
+    <button class="button-secondary">
+        View my previous requests
+    </button>
+</a>
+
+<hr style="margin-bottom: 2rem;">
+
+{% call form.form(id="graphicRequestForm", class="graphic-req-form", enctype="application/x-www-form-urlencoded", on_submit="return submitRequest(event)") %}
+    {{ form.text_input( 
+        name="email",
+        label="Submitter's email address (@illinimedia.com)",
+        required=true,
+        placeholder="NetID@illinimedia.com",
+        pattern=".*@illinimedia\.com$",
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.text_input( 
+        name="name",
+        label="Submitter's full name",
+        required=true,
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.select_input( 
+        name="department",
+        label="Department",
+        options=["News", "Sports", "Features", "Opinions", "buzz", "Other or N/A"],
+        required=true,
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.textarea_input( 
+        name="storyheadline",
+        label="Story headline",
+        subtext="if you don't know the headline yet, please give 10 words or less describing the angle of the story.",
+        required=true,
+        maxlength=75,
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.textarea_input( 
+        name="storyDetails",
+        label="Brief description of story",
+        required=true,
+        maxlength=400,
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.text_input( 
+        name="url",
+        label="Reference link",
+        subtext="Optionally include a link to a working draft of the story, sketches, or reference materials. If this is a Google Drive link, please make sure imc-staff-graphic@illinimedia.com has access to view.",
+        alt_type="url",
+        required=false,
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.text_input( 
+        name="dueDate",
+        label="When is it being published??",
+        subtext="If your story is going in PRINT, mark the publication date well in advance of when it will actually be printed so that we have enough time to make your graphic! At the latest, mark the date as Saturday of the week before we print.",
+        alt_type="date",
+        required=true,
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.radio_input( 
+        name="publishLocation",
+        label="Where will it be published?",
+        options=["Online Only", "Print/Online"],
+        required=true,
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.radio_input( 
+        name="graphicType",
+        label="Type of graphic?",
+        options=["Illustration", "Infographic", "Comic"],
+        required=true,
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.textarea_input( 
+        name="illustrationDescription",
+        label="Brief description of the illustration",
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.textarea_input( 
+        name="illustrationPurpose",
+        label="Purpose of illustration",
+        class="graphic-req-form-row"
+    ) }}
+    {{ form.submit_button(text="Submit", label="submitButton") }}
+{% endcall %}
+
+<script>
+    // Prefill the email and name fields with the current user's info
+    window.addEventListener("load", () => {
+        const submissionForm = document.getElementById("graphicRequestForm");
+        const emailInput = submissionForm.querySelector("#email");
+        const nameInput = submissionForm.querySelector("#name");
+
+        emailInput.value = "{{ current_user.email }}";
+        nameInput.value = "{{ current_user.name }}";
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const msg = sessionStorage.getItem("infoBarMessage");
+        if (msg) {
+            showInfoBar(msg);
+            sessionStorage.removeItem("infoBarMessage"); // Clear it after showing
+        }
+    });
+
+    // Submit the graphic request
+    async function submitRequest(event) {
+        event.preventDefault();
+        console.log("Submitting...");
+
+        showLoading("Verifying input...");
+
+        // Get the response data from the form (all as strings)
+        const formData = new FormData(submissionForm);
+        const valEmail = formData.get("email");                 
+        const valName = formData.get("name");                   
+        const valDest = formData.get("destination");            
+        const valDept = formData.get("department");              // Not always submitted
+        const valMemo = formData.get("memo");                   
+        const valDetails = formData.get("specificDetails");     
+        const valUrl = formData.get("url");                     // Not always submitted
+        const valDue = formData.get("dueDate"); 
+        var valCourt = formData.get("isCourtesy-options");    
+        var valEvent = formData.get("isEvent-options");       // Not always submitted
+        const valEvDate = formData.get("eventDate");            // Not always submitted || This is naive with no TZ
+        const valEvLoc = formData.get("eventLocation");         // Not always submitted
+        var valPass = formData.get("presspass-options");      // Not always submitted
+        const valPpReq = formData.get("presspassRequestor");    // Not always submitted
+        const valInfo = formData.get("info");                   // Not always submitted
+
+        // Validate the input, cancel the submission if not valid
+        valid = await validateInput(valEmail, valName, valDest, valDept, valMemo,
+                                    valDetails, valUrl, valDue, valCourt, valEvent,
+                                    valEvDate, valEvLoc, valPass, valPpReq, valInfo);
+        if (!valid) {
+            hideLoading();
+            return;
+        }
+
+        // Turn the valCourt into boolean
+        if (valCourt == "Yes") 
+            valCourt = true;
+        else 
+            valCourt = false;
+        
+        // Turn the valEvent into boolean
+        if (valEvent == "Yes")
+            valEvent = true;
+        else
+            valEvent = false;
+        
+        // Turn the valPass into boolean
+        if (valPass == "Yes")
+            valPass = true;
+        else
+            valPass = false;
+
+        showLoading("Submitting...:");
+        
+        // Send the data to the backend endpoint
+        let endpoint = "/graphic-requests/api/submit";
+        const payload = {
+            _csrf_token: "{{ csrf_token() }}",
+            submitterEmail: valEmail,
+            submitterName: valName,
+            destination: valDest,
+            department: valDept,
+            memo: valMemo,
+            specificDetails: valDetails,
+            referenceURL: valUrl,
+            dueDate: valDue,
+            isCourtesy: valCourt,
+            specificEvent: valEvent,
+            eventDateTime: valEvDate,
+            eventLocation: valEvLoc,
+            pressPass: valPass,
+            pressPassRequester: valPpReq,
+            moreInfo: valInfo,
+        };
+
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        // Check if it was successful
+        if (response.status === 200) {
+            // Trigger a reload of the window
+            sessionStorage.setItem("infoBarMessage", "Request successfully submitted."); // Safe so we can display after reload
+            window.location.reload();
+        } else {
+            // Alert of the error
+            console.log("Submitting Graphic Request to database failed!");
+            const message = await response.text();
+            console.error(message);
+            await showTextAlert(header="There was an error:", body=message, buttonText="Dismiss");
+            hideLoading();
+        }
+
+    }
+
+    // Function to validate the input of the form
+    async function validateInput(valEmail, valName, valDest, valDept, valMemo,
+                                 valDetails, valUrl, valDue, valCourt, valEvent,
+                                 valEvDate, valEvLoc, valPass, valPpReq, valInfo) {
+
+        // Make sure there is a department if it's for The Daily Illini
+        if (valDest == "The Daily Illini") {
+            if (valDept == "" || valDept == "Select...") {
+                await showTextAlert(
+                    header = "Invalid input",
+                    body = "Please select a department.",
+                    buttonText = "Dismiss"
+                );
+                return false;
+            }
+        }
+
+        // Check the due date
+        var inputDueDate = new Date(valDue + "T23:59");
+        const now = new Date();
+
+        console.log(inputDueDate);
+        console.log(now);
+
+        var diffMs = inputDueDate - now;
+        const requiredDiff = 48 * 60 * 60 * 1000;    // 48 hours to milliseconds
+
+        // Check if the due date is in the past
+        if (diffMs <= 0) {
+            await showTextAlert(
+                header="Heads up!",
+                body="It looks like the due date you provided is in the past."
+                        + " Please double check that it's correct.",
+                buttonText="Dismiss"
+            );
+            return false;
+        }
+
+        // Check if the due date is less than 48 hours away
+        else if (diffMs < requiredDiff) {
+            result = await showButtonAlert(
+                header="Heads up!",
+                body="It looks like the due date you provided is less than 48 hours from now."
+                        + " Please double check that it's correct.\nYou can still submit this request, but"
+                        + " please note that it may not be completed on time. In the future, submit your request at" 
+                        + " least 48 hours before the due date.\n\n(Note that this error may occur if you are"
+                        + " not currently in the Central timezone, even if it is more than 48 hours in advance.)",
+                alertButtonText="Submit anyway",
+                cancelButtonText="Cancel"
+            );
+            if (result == false) return false;
+        }
+
+        // If it's not a courtesy, make sure the other fields are all complete
+        if (valCourt == "No") {
+            if (valEvent == "Yes") {
+                if (valEvDate == "") {
+                    await showTextAlert(
+                        header = "Invalid input",
+                        body = "Please indicate the date and time of the event.",
+                        buttonText = "Dismiss"
+                    );
+                    return false;
+                }
+
+                // Check the timing of the event
+                var inputDateTime = new Date(valEvDate);
+
+                diffMs = inputDateTime - now;
+
+                // Check if the event is in the past
+                if (diffMs <= 0) {
+                    result = await showButtonAlert(
+                        header="Heads up!",
+                        body="It looks like the event date and time you provided is in the past."
+                             + " Please double check that it's correct.\nIf this event has already"
+                             + " happened, consider submitting it as a courtesy request. That way,"
+                             + " the graphic staff can get it from our archives or from an outside source.",
+                        alertButtonText="Submit anyway",
+                        cancelButtonText="Cancel"
+                    );
+                    if (result == false) return false;
+                }
+
+                // Check if the event is less than 48 hours in advance
+                else if (diffMs < requiredDiff) {
+                    result = await showButtonAlert(
+                        header="Heads up!",
+                        body="It looks like the event date and time you provided is less than 48 hours from now."
+                             + " Please double check that it's correct.\nYou can still submit this request, but"
+                             + " please note that it may not be completed. In the future, submit your request at" 
+                             + " least 48 hours before the time of the event.\n\n(Note that this error may occur if you are"
+                             + " not currently in the Central timezone, even if it is more than 48 hours in advance.)",
+                        alertButtonText="Submit anyway",
+                        cancelButtonText="Cancel"
+                    );
+                    if (result == false) return false;
+                }
+
+                if (valEvLoc == "") {
+                    await showTextAlert(
+                        header = "Invalid input",
+                        body = "Please indicate the location of the event.",
+                        buttonText = "Dismiss"
+                    );
+                    return false;
+                }
+
+                if (valPass == "") {
+                    await showTextAlert(
+                        header = "Invalid input",
+                        body = "Please indicate whether this event requires press credentials.",
+                        buttonText = "Dismiss"
+                    );
+                    return false;
+                } else if (valPass == "Yes") {
+                    if (valPpReq == "" || valPpReq == "Select...") {
+                        await showTextAlert(
+                            header = "Invalid input",
+                            body = "Please indicate who is is requesting the credentials.",
+                            buttonText = "Dismiss"
+                        );
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    // Get all the relevant form elements for dynamic showing/hiding
+    const submissionForm = document.getElementById("graphicRequestForm");
+    const destInput = submissionForm.querySelector("#destination");
+    const deptInput = submissionForm.querySelector("#department");
+    const courtInput = submissionForm.querySelectorAll('input[name="isCourtesy-options"]');
+    const eventInput = submissionForm.querySelectorAll('input[name="isEvent-options"]');
+    const evDateInput = submissionForm.querySelector("#eventDate");
+    const evLocInput = submissionForm.querySelector("#eventLocation");
+    const passInput = submissionForm.querySelectorAll('input[name="presspass-options"]');
+    const ppReqInput = submissionForm.querySelector("#presspassRequestor");
+
+    const deptContainer = submissionForm.querySelector("#formfield-department");
+    const eventContainer = submissionForm.querySelector("#formfield-isEvent");
+    const evDateContainer = submissionForm.querySelector("#formfield-eventDate");
+    const evLocContainer = submissionForm.querySelector("#formfield-eventLocation");
+    const passContainer = submissionForm.querySelector("#formfield-presspass");
+    const ppReqContainer = submissionForm.querySelector("#formfield-presspassRequestor");
+
+    // Event listener to show the department question if the destination is The Daily Illini
+    destInput.addEventListener("input", () => {
+        if (destInput.value == "The Daily Illini") {
+            deptContainer.classList.remove("initial-no-show");
+        } else {
+            // Hide the question again and clear its value
+            deptContainer.classList.add("initial-no-show");
+            deptInput.value = "";
+        }
+    });
+
+    // Event listener to show the event question if it's not a courtesy
+    courtInput.forEach(input => {
+        input.addEventListener("change", () => {
+            if (input.value == "No") {
+                eventContainer.classList.remove("initial-no-show");
+            } else {
+                eventContainer.classList.add("initial-no-show");
+                evDateContainer.classList.add("initial-no-show");
+                evLocContainer.classList.add("initial-no-show");
+                passContainer.classList.add("initial-no-show");
+                ppReqContainer.classList.add("initial-no-show");
+
+                // Clear the input for the following questions
+                eventInput.forEach(evt => evt.checked = false);
+                evDateInput.value = "";
+                evLocInput.value = "";
+                passInput.forEach(evt => evt.checked = false);
+                ppReqInput.value = "";
+            }
+        });
+    });
+
+    // Event listener to show the other event questions if it's not a courtesy
+    eventInput.forEach(input => {
+        input.addEventListener("change", () => {
+            if (input.value == "Yes") {
+                evDateContainer.classList.remove("initial-no-show");
+                evLocContainer.classList.remove("initial-no-show");
+                passContainer.classList.remove("initial-no-show");
+            } else {
+                evDateContainer.classList.add("initial-no-show");
+                evLocContainer.classList.add("initial-no-show");
+                passContainer.classList.add("initial-no-show");
+                ppReqContainer.classList.add("initial-no-show");
+
+                // Clear the input for the following questions
+                evDateInput.value = "";
+                evLocInput.value = "";
+                passInput.forEach(evt => evt.checked = false);
+                ppReqInput.value = "";
+            }
+        });
+    });
+
+    // Event listener to show the presspass requestor question if it needs a press pass
+    passInput.forEach(input => {
+        input.addEventListener("change", () => {
+            if (input.value == "Yes") {
+                ppReqContainer.classList.remove("initial-no-show");
+            } else {
+                ppReqContainer.classList.add("initial-no-show");
+                ppReqInput.value = "";
+            }
+        });
+    });
+</script>
+
+{% endblock %}
